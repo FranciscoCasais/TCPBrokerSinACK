@@ -1,7 +1,8 @@
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
+import javax.crypto.*;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.Socket;
 import java.security.*;
@@ -111,11 +112,19 @@ public class Cliente implements FirmaDigital {
             impresor.println(claves.getPublicKeyString());
 
             // recibe la clave AES del servidor
+            Object objetoRecibidoClaveSimetrica=inputStream.readObject();
+            String keyString=FirmaDigital.verificarFirmaDigital(objetoRecibidoClaveSimetrica,clavePublicaServidor,claves);
+
+            System.out.println(keyString);
+
+            byte[] keyBytes = Base64.getDecoder().decode(keyString);
+            SecretKey claveSimetrica = new SecretKeySpec(keyBytes, "AES");
+
             // TODO: recepcion de la clave simetrica
 
             // se establece el nombre y se instancia el cliente
             System.out.print("Se conectó exitosamente al servidor.\nIngrese su nombre: ");
-            Cliente cliente=new Cliente(new HashSet<>(),outputStream,clavePublica,null,conexion,entrada.nextLine());
+            Cliente cliente=new Cliente(new HashSet<>(),outputStream,clavePublica,claveSimetrica,conexion,entrada.nextLine());
             cliente.getTopicosSuscrito().add("General");
 
             // le manda su nombre al servidor

@@ -116,6 +116,16 @@ public class Servidor implements FirmaDigital {
                         clavePublicaCliente.setPublicKeyString(lector.readLine());
 
                         // crea la clave simetrica AES y se la manda al cliente
+                        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+                        keyGenerator.init(256);
+                        SecretKey claveSimetrica = keyGenerator.generateKey();
+                        byte[] keyBytes = claveSimetrica.getEncoded();
+                        String keyString = Base64.getEncoder().encodeToString(keyBytes);
+
+                        System.out.println(keyString);
+
+                        Mensaje mensajeClaveSimetrica=FirmaDigital.obtenerObjetoMensaje(clavePublicaCliente,claves,keyString);
+                        outputStream.writeObject(mensajeClaveSimetrica);
                         // TODO: creacion y envio de la clave simetrica
 
                         // recibe el nombre del cliente
@@ -125,7 +135,7 @@ public class Servidor implements FirmaDigital {
                         // instancia el cliente y lo agrega al hashset
                         HashSet<String> topicosSuscrito=new HashSet<>();
                         topicosSuscrito.add("General");
-                        Cliente cliente=new Cliente(topicosSuscrito,outputStream,clavePublicaCliente,null,conexion,nombreCliente);
+                        Cliente cliente=new Cliente(topicosSuscrito,outputStream,clavePublicaCliente,claveSimetrica,conexion,nombreCliente);
                         servidor.getClientes().add(cliente);
                         System.out.println("Nuevo cliente conectado: "+cliente.getNombre()+" ("+cliente.getConexion().getInetAddress().toString().substring(1)+")");
 
