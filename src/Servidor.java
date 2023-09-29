@@ -1,167 +1,168 @@
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import java.io.*;
 import java.net.*;
 import java.security.InvalidKeyException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
-public class Servidor extends Thread {
-    private HashMap<Socket,ObjectOutputStream> outputStreamsClientes;
-    private HashMap<Socket,RSA> clavesPublicasClientes;
-    private HashMap<String,HashSet<Socket>> clientesPorTopico;
-    private HashSet<Socket> clientesConectados;
+import javax.crypto.*;
+public class Servidor implements FirmaDigital {
+    private HashSet<Cliente> clientes;
+    private HashSet<String> topicos;
     private RSA claves;
     private ServerSocket puerto;
-    public Servidor(HashMap<Socket,ObjectOutputStream> outputStreamsClientes,HashMap<Socket,RSA> clavesPublicasClientes,HashMap<String,HashSet<Socket>> clientesPorTopico,HashSet<Socket> clientes,RSA claves,ServerSocket puertoServidor) {
-        this.outputStreamsClientes=outputStreamsClientes;
-        this.clavesPublicasClientes=clavesPublicasClientes;
-        this.clientesPorTopico=clientesPorTopico;
-        this.clientesConectados =clientes;
-        this.claves=claves;
-        this.puerto=puertoServidor;
+    public Servidor() {
+        clientes=new HashSet<>();
+        topicos=new HashSet<>();
+        claves=null;
+        puerto=null;
     }
-    public HashMap<Socket,ObjectOutputStream> getOutputStreamsClientes() { return outputStreamsClientes; }
-    public HashMap<Socket,RSA> getClavesPublicasClientes() { return clavesPublicasClientes; }
-    public HashMap<String,HashSet<Socket>> getClientesPorTopico() { return clientesPorTopico; }
-    public HashSet<Socket> getClientesConectados() { return clientesConectados; }
+    public Servidor(HashSet<Cliente> clientes, HashSet<String> topicos, RSA claves, ServerSocket puerto) {
+        this.clientes = clientes;
+        this.topicos = topicos;
+        this.claves = claves;
+        this.puerto = puerto;
+    }
+    public HashSet<Cliente> getClientes() { return clientes; }
+    public void setClientes(HashSet<Cliente> clientes) { this.clientes=clientes; }
+    public HashSet<String> getTopicos() { return topicos; }
+    public void setTopicos(HashSet<String> topicos) { this.topicos=topicos; }
     public RSA getClaves() { return claves; }
-    public ServerSocket getPuerto() { return puerto; }
-    public void setOutputStreamsClientes(HashMap<Socket,ObjectOutputStream> outputStreamsClientes) { this.outputStreamsClientes=outputStreamsClientes; }
-    public void setClavesPublicasClientes(HashMap<Socket,RSA> clavesPublicasClientes) { this.clavesPublicasClientes=clavesPublicasClientes; }
-    public void setClientesPorTopico(HashMap<String,HashSet<Socket>> clientesPorTopico) { this.clientesPorTopico = clientesPorTopico; }
-    public void setClientesConectados(HashSet<Socket> clientesConectados) { this.clientesConectados = clientesConectados; }
     public void setClaves(RSA claves) { this.claves=claves; }
+    public ServerSocket getPuerto() { return puerto; }
     public void setPuerto(ServerSocket puerto) { this.puerto=puerto; }
-    public String verificarFirmaDigital(RSA rsaCliente,Mensaje mensajeRecibido) throws NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-        // desencripta el mensaje 1 hasheado con la clave pública del cliente
-        String mensaje1Desencriptado=rsaCliente.desencriptarClavePublica(mensajeRecibido.getMensaje1());
-
-        // desencripta el mensaje 2 con la clave privada del servidor
-        String mensaje2Desencriptado=getClaves().desencriptarClavePrivada(mensajeRecibido.getMensaje2());
-
-        // hashea el mensaje 2
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        md.update(mensaje2Desencriptado.getBytes());
-        byte[] hashBytes = md.digest();
-        StringBuilder hashHex = new StringBuilder();
-        for (byte hashByte : hashBytes) {
-            String hex = Integer.toHexString(0xff & hashByte);
-            if (hex.length() == 1) {
-                hashHex.append('0');
-            }
-            hashHex.append(hex);
-        }
-        String mensaje2Hasheado=hashHex.toString();
-
-        // los compara
-        if(mensaje1Desencriptado.equals(mensaje2Hasheado)) return mensaje2Desencriptado;
-        else return null;
-    }
-    public String obtenerMensaje1(String mensaje) throws NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, UnsupportedEncodingException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
-
-        // hashea el mensaje
-        MessageDigest md=MessageDigest.getInstance("SHA-256");
-        md.update(mensaje.getBytes());
-        byte[] hashBytes=md.digest();
-        StringBuilder hashHex=new StringBuilder();
-        for(byte hashByte:hashBytes) {
-            String hex=Integer.toHexString(0xff & hashByte);
-            if(hex.length()==1) hashHex.append('0');
-            hashHex.append(hex);
-        }
-
-        // lo encripta con la clave privada del servidor
-        String mensaje1=getClaves().encriptarClavePrivada(hashHex.toString());
-        return mensaje1;
-
-    }
-    public String obtenerMensaje2(RSA rsaCliente,String mensaje) throws NoSuchPaddingException, IllegalBlockSizeException, UnsupportedEncodingException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
-
-        // lo encripta con la clave publica del servidor
-        String mensaje2=rsaCliente.encriptarClavePublica(mensaje);
-        return mensaje2;
-
-    }
-    public Mensaje obtenerObjetoMensaje(RSA rsaCliente,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, UnsupportedEncodingException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
-        String mensaje1=this.obtenerMensaje1(comando);
-        String mensaje2=this.obtenerMensaje2(rsaCliente,comando);
-        Mensaje mensajeFinal=new Mensaje(mensaje1,mensaje2);
-        return mensajeFinal;
-    }
-    public void aniadirQuitarSuscripcion(Socket conexion,String comando) {
-        boolean entrar=false;
-        String topico="";
-        for(int i=0;i<comando.length();i++) {
-            if(entrar) { topico+=comando.charAt(i); }
-            else if(comando.charAt(i)==' ') { entrar=!entrar; }
-        }
-        if(comando.charAt(1)=='s') { this.getClientesPorTopico().get(topico).add(conexion); }
-        else { this.getClientesPorTopico().get(topico).remove(conexion); }
-    }
-    public void buscarTopico(ObjectOutputStream outputStream,Socket conexion,String comando) throws IOException {
-        boolean entrar=false;
-        // ObjectOutputStream outputStream = new ObjectOutputStream(conexion.getOutputStream());
-        String topico="";
-        for(int i=0;i<comando.length();i++) {
-            if(entrar) { topico+=comando.charAt(i); }
-            else if(comando.charAt(i)==' ') { entrar=!entrar; }
-        }
-        try {
-            if(clientesPorTopico.containsKey(topico)) { this.mandarTopicos(conexion); }
-            else {
-                String mensaje="0";
-                Mensaje mensajeFinal=obtenerObjetoMensaje(clavesPublicasClientes.get(conexion),mensaje);
-                outputStream.writeObject(mensajeFinal);
-                // PrintWriter impresor=new PrintWriter(conexion.getOutputStream(),true);
-            }
-        } catch(IOException | NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | InvalidKeySpecException | InvalidKeyException | NoSuchProviderException | IllegalBlockSizeException e) { throw new RuntimeException(e); }
-    }
-    public void eliminarCliente(Socket conexion) {
-        clientesConectados.remove(conexion);
-        for(HashSet<Socket> clientesSuscritos:clientesPorTopico.values()) {
-            for(Socket c:clientesSuscritos) {
-                if(c.equals(conexion)) { clientesSuscritos.remove(c); }
-            }
+    public void agregarTopico(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
+        String topico=FirmaDigital.obtenerTopico2(comando);
+        topicos.add(topico);
+        for(Cliente cliente:clientes) {
+            if(!cliente.equals(emisor)) mandarTopicos(cliente);
         }
     }
-    public void enviarMensaje(Socket conexion,String comando) throws IOException {
-        int i;
-        // ObjectOutputStream outputStream = new ObjectOutputStream(conexion.getOutputStream());
-        String topico="";
-        if(comando.charAt(0)=='-') {
-            i=2;
+    public void enviarMensaje(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
+        String mensajeString,topico="";
+        if(comando.charAt(1)=='g') {
             topico="General";
+            mensajeString="/"+emisor.getNombre()+" dice en @"+topico+": "+comando.substring(3);
         } else {
-            i=1;
-            while(comando.charAt(i)!=' ') {
-                topico+=comando.charAt(i);
-                i++;
+            topico=FirmaDigital.obtenerTopico1(comando);
+            mensajeString="/"+emisor.getNombre()+" dice en @"+topico+": "+comando.substring(topico.length()+2);
+        }
+        for(Cliente cliente:clientes) {
+            if(cliente.getTopicosSuscrito().contains(topico)) {
+                Mensaje mensaje=FirmaDigital.obtenerObjetoMensaje(cliente.getClavePublica(),claves,mensajeString);
+                cliente.getOutputStream().writeObject(mensaje);
             }
         }
-        String mensajeString=conexion.getInetAddress()+" dice en @"+topico+": "+comando.substring(i+1,comando.length());
-        for(Socket cliente: this.getClientesPorTopico().get(topico)) {
-            try {
-                // PrintWriter impresor=new PrintWriter(cliente.getOutputStream(),true);
-                Mensaje mensajeFinal=obtenerObjetoMensaje(clavesPublicasClientes.get(cliente),mensajeString);
-                // ObjectOutputStream outputStream=new ObjectOutputStream(cliente.getOutputStream());
-                outputStreamsClientes.get(cliente).writeObject(mensajeFinal);
-                // impresor.println(conexion.getInetAddress()+" dice en @"+topico+": "+comando.substring(i+1,comando.length()));
-            } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeySpecException | InvalidKeyException | NoSuchProviderException e) { throw new RuntimeException(e); }
+    }
+    public void mandarTopicos(Cliente cliente) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
+        String cadenaTopicos="";
+        for(String topico:topicos) { cadenaTopicos+=topico+'.'; }
+        Mensaje mensaje=FirmaDigital.obtenerObjetoMensaje(cliente.getClavePublica(),claves,cadenaTopicos);
+        cliente.getOutputStream().writeObject(mensaje);
+    }
+    public void suscribirDesuscribirCliente(Cliente cliente,String mensaje) {
+        String topico=FirmaDigital.obtenerTopico2(mensaje);
+        for(Cliente c:clientes) {
+            if(c.equals(cliente) && mensaje.charAt(1)=='s') c.getTopicosSuscrito().add(topico);
+            else if(c.equals(cliente) && mensaje.charAt(1)=='d') c.getTopicosSuscrito().remove(topico);
         }
     }
-    public void mandarTopicos(Socket conexion) {
-        try {
-            // ObjectOutputStream outputStream = new ObjectOutputStream(conexion.getOutputStream());
-            String cadenaTopicos="";
-            for(String topico:clientesPorTopico.keySet()) { cadenaTopicos+=topico+'.'; }
-            Mensaje mensajeFinal=obtenerObjetoMensaje(clavesPublicasClientes.get(conexion),cadenaTopicos);
-            outputStreamsClientes.get(conexion).writeObject(mensajeFinal);
-            // PrintWriter impresor=new PrintWriter(conexion.getOutputStream(),true);
-            // impresor.println(cadenaTopicos);
-        } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeySpecException | InvalidKeyException | NoSuchProviderException e) { throw new RuntimeException(e); }
+    /* public static String generarClaveAleatoria() {
+        String caracteres="qwertyuiopasdfghjklzxcvbnm1234567890",claveAleatoria="";
+
+        return claveAleatoria;
+    } */
+    public static void main(String[] args) {
+        Scanner entrada=new Scanner(System.in);
+        System.out.print("Ingrese un puerto: ");
+        try(ServerSocket puerto=new ServerSocket(entrada.nextInt())) {
+
+            // crea su clave publica y privada
+            RSA claves=new RSA();
+            claves.genKeyPair(4096);
+
+            // se establece el servidor
+            Servidor servidor=new Servidor(new HashSet<>(),new HashSet<>(),claves,puerto);
+            servidor.getTopicos().add("General");
+            System.out.println("Servidor escuchando en el puerto "+servidor.getPuerto().getLocalPort()+".");
+
+            // incia un hilo donde pide una entrada para ver varios comandos
+            /* Thread hiloComandosServidor=new Thread(() -> {
+
+            });
+            hiloComandosServidor.start(); */
+            // TODO: hilo comandos servidor
+
+            do {
+
+                // escucha constantemente en busca de clientes queriendo conectarse
+                Socket conexion=servidor.getPuerto().accept();
+
+                // cuando detecta una conexión, la administra en un hilo secundario
+                Thread hiloCliente=new Thread(() -> {
+                    try {
+
+                        // crea los lectores e impresores necesarios
+                        PrintWriter impresor=new PrintWriter(conexion.getOutputStream(),true);
+                        BufferedReader lector=new BufferedReader(new InputStreamReader(conexion.getInputStream()));
+                        ObjectInputStream inputStream = new ObjectInputStream(conexion.getInputStream());
+                        ObjectOutputStream outputStream = new ObjectOutputStream(conexion.getOutputStream());
+
+                        // le manda la clave publica al cliente
+                        impresor.println(servidor.getClaves().getPublicKeyString());
+
+                        // recibe la clave publica del cliente
+                        RSA clavePublicaCliente=new RSA();
+                        clavePublicaCliente.setPublicKeyString(lector.readLine());
+
+                        // crea la clave simetrica AES y se la manda al cliente
+                        // TODO: creacion y envio de la clave simetrica
+
+                        // recibe el nombre del cliente
+                        Object objetoRecibidoNombre=inputStream.readObject();
+                        String nombreCliente=FirmaDigital.verificarFirmaDigital(objetoRecibidoNombre,clavePublicaCliente,claves);
+
+                        // instancia el cliente y lo agrega al hashset
+                        HashSet<String> topicosSuscrito=new HashSet<>();
+                        topicosSuscrito.add("General");
+                        Cliente cliente=new Cliente(topicosSuscrito,outputStream,clavePublicaCliente,null,conexion,nombreCliente);
+                        servidor.getClientes().add(cliente);
+                        System.out.println("Nuevo cliente conectado: "+cliente.getNombre()+" ("+cliente.getConexion().getInetAddress().toString().substring(1)+")");
+
+                        // le manda los topicos por primera vez
+                        servidor.mandarTopicos(cliente);
+
+                        do {
+
+                            // el servidor escucha permanentemente en busca de un comando entrante del cliente
+                            Object objetoRecibido=inputStream.readObject();
+                            String mensajeRecibido=FirmaDigital.verificarFirmaDigital(objetoRecibido,clavePublicaCliente,claves);
+
+                            // lo evalua
+                            if(mensajeRecibido.charAt(1)=='g' || mensajeRecibido.charAt(0)=='@') servidor.enviarMensaje(cliente,mensajeRecibido);
+                            else if(mensajeRecibido.charAt(1)=='s' || mensajeRecibido.charAt(1)=='d') servidor.suscribirDesuscribirCliente(cliente,mensajeRecibido);
+                            else if(mensajeRecibido.charAt(1)=='c') servidor.agregarTopico(cliente,mensajeRecibido);
+
+                            // break;
+
+                        } while(true);
+
+                        // servidor.getClientes().remove(cliente);
+                        // impresor.close();
+                        // lector.close();
+                        // inputStream.close();
+                        // outputStream.close();
+                        // System.out.println("Se desconectó un cliente: "+cliente.getNombre()+" ("+cliente.getConexion().getInetAddress().toString().substring(1)+")");
+
+                    } catch (IOException | InvalidKeySpecException | NoSuchAlgorithmException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException | InvalidKeyException | NoSuchProviderException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { e.getMessage(); }
+                });
+
+                // inicia el hilo
+                hiloCliente.start();
+
+            } while(true);
+            // TODO: apagar manualmente el servidor
+
+        } catch(NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | IOException e) { e.getMessage(); }
     }
 }
