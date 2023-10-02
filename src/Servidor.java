@@ -166,7 +166,7 @@ public class Servidor implements FirmaDigital {
                         // outputStream.close();
                         // System.out.println("Se desconectó un cliente: "+cliente);
 
-                    } catch (IOException | InvalidKeySpecException | NoSuchAlgorithmException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException | InvalidKeyException | NoSuchProviderException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { e.getMessage(); }
+                    } catch (IOException | InvalidKeySpecException | NoSuchAlgorithmException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException | InvalidKeyException | NoSuchProviderException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { System.out.println(e.getMessage()); }
                 });
 
                 // inicia el hilo
@@ -174,6 +174,6 @@ public class Servidor implements FirmaDigital {
 
             } while(true);
 
-        } catch(NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | IOException e) { e.getMessage(); }
+        } catch(NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | IOException e) { System.out.println(e.getMessage()); }
     }
 }

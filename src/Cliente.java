@@ -142,7 +142,7 @@ public class Cliente implements FirmaDigital {
                         String mensajeRecibido=FirmaDigital.verificarFirmaDigitalAES(objetoRecibido,clavePublicaServidor,cliente.getClaveSimetrica());
                         if(mensajeRecibido.charAt(0)=='/') System.out.println(mensajeRecibido.substring(1));
                         else topicosServidor.add(mensajeRecibido);
-                    } catch (IOException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { e.getMessage(); }
+                    } catch (IOException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { System.out.println(e.getMessage()); }
                 } while(true);
             });
             hiloRecepcion.start();
@@ -170,7 +170,7 @@ public class Cliente implements FirmaDigital {
                                 outputStream.writeObject(mensaje);
                                 System.out.println("Se creó el tópico \""+topico+"\" y se le suscribió automáticamente a él.");
                             } else System.out.println("Ya existe el tópico.");
-                        } catch(TopicoConEspacioException e) { e.getMessage(); }
+                        } catch(TopicoConEspacioException e) { System.out.println(e.getMessage()); }
                     }
                 } else { System.out.println("\nError de sintaxis. Comandos:\n\n-g mensaje para enviar mensaje al general\n@nombretópico mensaje para enviar mensaje a un tópico\n-s nombretópico para suscribirse a un tópico\n-ds nombretópico para desuscribirse de un tópico\n-ct nombretópico para crear un tópico\n-fin para desconectar\n"); }
 
@@ -185,6 +185,6 @@ public class Cliente implements FirmaDigital {
             // impresor.close();
             // TODO: desconexion manual del cliente
 
-        } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | InvalidKeySpecException | NoSuchProviderException | ClassNotFoundException | MensajeModificadoException | ObjetoTipoIncorrectoException | InterruptedException e) { e.getMessage(); }
+        } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | InvalidKeySpecException | NoSuchProviderException | ClassNotFoundException | MensajeModificadoException | ObjetoTipoIncorrectoException | InterruptedException e) { System.out.println(e.getMessage()); }
     }
 }
