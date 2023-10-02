@@ -43,6 +43,8 @@ public class Cliente implements FirmaDigital {
     public void setConexion(Socket conexion) { this.conexion=conexion; }
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre=nombre; }
+    @Override
+    public String toString() { return nombre+" ("+conexion.getInetAddress().toString().substring(1)+")"; }
     public void suscribirDesuscribir(HashSet<String> topicosServidor,Mensaje mensaje,RSA clavePublicaServidor,RSA claves,String comando) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
         String topico=FirmaDigital.obtenerTopico2(comando);
         if(!topicosServidor.contains(topico)) System.out.println("No se encontró el tópico.");
@@ -113,14 +115,9 @@ public class Cliente implements FirmaDigital {
 
             // recibe la clave AES del servidor
             Object objetoRecibidoClaveSimetrica=inputStream.readObject();
-            String keyString=FirmaDigital.verificarFirmaDigital(objetoRecibidoClaveSimetrica,clavePublicaServidor,claves);
-
-            System.out.println(keyString);
-
+            String keyString=FirmaDigital.verificarFirmaDigitalRSA(objetoRecibidoClaveSimetrica,clavePublicaServidor,claves);
             byte[] keyBytes = Base64.getDecoder().decode(keyString);
             SecretKey claveSimetrica = new SecretKeySpec(keyBytes, "AES");
-
-            // TODO: recepcion de la clave simetrica
 
             // se establece el nombre y se instancia el cliente
             System.out.print("Se conectó exitosamente al servidor.\nIngrese su nombre: ");
@@ -128,12 +125,12 @@ public class Cliente implements FirmaDigital {
             cliente.getTopicosSuscrito().add("General");
 
             // le manda su nombre al servidor
-            Mensaje mensajeNombre=FirmaDigital.obtenerObjetoMensaje(clavePublicaServidor,claves,cliente.getNombre());
+            Mensaje mensajeNombre=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),cliente.getNombre());
             outputStream.writeObject(mensajeNombre);
 
             // recibe los topicos del servidor por primera vez
             Object objetoRecibidoTopicos=inputStream.readObject();
-            String mensajeTopicos=FirmaDigital.verificarFirmaDigital(objetoRecibidoTopicos,clavePublicaServidor,claves);
+            String mensajeTopicos=FirmaDigital.verificarFirmaDigitalAES(objetoRecibidoTopicos,clavePublicaServidor,cliente.getClaveSimetrica());
             HashSet<String> topicosServidor=new HashSet<>();
             recibirTopicos(topicosServidor,mensajeTopicos);
 
@@ -142,9 +139,9 @@ public class Cliente implements FirmaDigital {
                 do {
                     try {
                         Object objetoRecibido=inputStream.readObject();
-                        String mensajeRecibido=FirmaDigital.verificarFirmaDigital(objetoRecibido,clavePublicaServidor,claves);
+                        String mensajeRecibido=FirmaDigital.verificarFirmaDigitalAES(objetoRecibido,clavePublicaServidor,cliente.getClaveSimetrica());
                         if(mensajeRecibido.charAt(0)=='/') System.out.println(mensajeRecibido.substring(1));
-                        else recibirTopicos(topicosServidor,mensajeRecibido);
+                        else topicosServidor.add(mensajeRecibido);
                     } catch (IOException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { e.getMessage(); }
                 } while(true);
             });
@@ -159,16 +156,18 @@ public class Cliente implements FirmaDigital {
 
                 // lo evalua
                 if(verificarSintaxis(comando)) {
-                    Mensaje mensaje=FirmaDigital.obtenerObjetoMensaje(clavePublicaServidor,claves,comando);
+                    Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),comando);
                     if(comando.charAt(1)=='g' || (comando.charAt(0)=='@' && cliente.getTopicosSuscrito().contains(FirmaDigital.obtenerTopico1(comando)))) outputStream.writeObject(mensaje);
                     else if(comando.charAt(0)=='@') System.out.println("El tópico no existe o no está suscrito a él.");
                     else if(comando.charAt(1)=='s' || comando.charAt(1)=='d') cliente.suscribirDesuscribir(topicosServidor,mensaje,clavePublicaServidor,claves,comando);
                     else if(comando.charAt(1)=='c') {
                         String topico=comando.substring(4);
-                        cliente.getTopicosSuscrito().add(topico);
-                        topicosServidor.add(topico);
-                        outputStream.writeObject(mensaje);
-                        System.out.println("Se creó el tópico \""+topico+"\" y se le suscribió automáticamente a él.");
+                        if(!topicosServidor.contains(topico)) {
+                            cliente.getTopicosSuscrito().add(topico);
+                            topicosServidor.add(topico);
+                            outputStream.writeObject(mensaje);
+                            System.out.println("Se creó el tópico \""+topico+"\" y se le suscribió automáticamente a él.");
+                        } else System.out.println("Ya existe el tópico.");
                     }
                 } else { System.out.println("\nError de sintaxis. Comandos:\n\n-g mensaje para enviar mensaje al general\n@nombretópico mensaje para enviar mensaje a un tópico\n-s nombretópico para suscribirse a un tópico\n-ds nombretópico para desuscribirse de un tópico\n-ct nombretópico para crear un tópico\n-fin para desconectar\n"); }
 

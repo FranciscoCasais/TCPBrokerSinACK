@@ -32,14 +32,15 @@ public class Servidor implements FirmaDigital {
     public ServerSocket getPuerto() { return puerto; }
     public void setPuerto(ServerSocket puerto) { this.puerto=puerto; }
     public void agregarTopico(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
-        String topico=FirmaDigital.obtenerTopico2(comando);
+        String topico=comando.substring(4);
         topicos.add(topico);
         for(Cliente cliente:clientes) {
-            if(!cliente.equals(emisor)) mandarTopicos(cliente);
+            Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),topico);
+            cliente.getOutputStream().writeObject(mensaje);
         }
     }
     public void enviarMensaje(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
-        String mensajeString,topico="";
+        String mensajeString,topico;
         if(comando.charAt(1)=='g') {
             topico="General";
             mensajeString="/"+emisor.getNombre()+" dice en @"+topico+": "+comando.substring(3);
@@ -49,7 +50,7 @@ public class Servidor implements FirmaDigital {
         }
         for(Cliente cliente:clientes) {
             if(cliente.getTopicosSuscrito().contains(topico)) {
-                Mensaje mensaje=FirmaDigital.obtenerObjetoMensaje(cliente.getClavePublica(),claves,mensajeString);
+                Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),mensajeString);
                 cliente.getOutputStream().writeObject(mensaje);
             }
         }
@@ -57,7 +58,7 @@ public class Servidor implements FirmaDigital {
     public void mandarTopicos(Cliente cliente) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
         String cadenaTopicos="";
         for(String topico:topicos) { cadenaTopicos+=topico+'.'; }
-        Mensaje mensaje=FirmaDigital.obtenerObjetoMensaje(cliente.getClavePublica(),claves,cadenaTopicos);
+        Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),cadenaTopicos);
         cliente.getOutputStream().writeObject(mensaje);
     }
     public void suscribirDesuscribirCliente(Cliente cliente,String mensaje) {
@@ -67,15 +68,12 @@ public class Servidor implements FirmaDigital {
             else if(c.equals(cliente) && mensaje.charAt(1)=='d') c.getTopicosSuscrito().remove(topico);
         }
     }
-    /* public static String generarClaveAleatoria() {
-        String caracteres="qwertyuiopasdfghjklzxcvbnm1234567890",claveAleatoria="";
-
-        return claveAleatoria;
-    } */
     public static void main(String[] args) {
         Scanner entrada=new Scanner(System.in);
         System.out.print("Ingrese un puerto: ");
         try(ServerSocket puerto=new ServerSocket(entrada.nextInt())) {
+
+            entrada.nextLine();
 
             // crea su clave publica y privada
             RSA claves=new RSA();
@@ -87,11 +85,19 @@ public class Servidor implements FirmaDigital {
             System.out.println("Servidor escuchando en el puerto "+servidor.getPuerto().getLocalPort()+".");
 
             // incia un hilo donde pide una entrada para ver varios comandos
-            /* Thread hiloComandosServidor=new Thread(() -> {
-
+            Thread hiloComandosServidor=new Thread(() -> {
+                do {
+                    String comando=entrada.nextLine();
+                    if(comando.equals("-lc")) {
+                        for(Cliente cliente:servidor.getClientes()) System.out.println(cliente);
+                    } else if(comando.equals("-lt")) {
+                        for(String topico:servidor.getTopicos()) System.out.println(topico);
+                    } else if(comando.equals("-fin")) {
+                        // TODO: desconexion manual del servidor
+                    } else System.out.println("Error de sintaxis:\n\n-lc para ver la lista de clientes conectados\n-lt para ver la lista de topicos en el sistema\n-fin para desconectar el servidor y terminar todas las conexiones");
+                } while(true);
             });
-            hiloComandosServidor.start(); */
-            // TODO: hilo comandos servidor
+            hiloComandosServidor.start();
 
             do {
 
@@ -121,23 +127,19 @@ public class Servidor implements FirmaDigital {
                         SecretKey claveSimetrica = keyGenerator.generateKey();
                         byte[] keyBytes = claveSimetrica.getEncoded();
                         String keyString = Base64.getEncoder().encodeToString(keyBytes);
-
-                        System.out.println(keyString);
-
-                        Mensaje mensajeClaveSimetrica=FirmaDigital.obtenerObjetoMensaje(clavePublicaCliente,claves,keyString);
+                        Mensaje mensajeClaveSimetrica=FirmaDigital.obtenerObjetoMensajeRSA(clavePublicaCliente,claves,keyString);
                         outputStream.writeObject(mensajeClaveSimetrica);
-                        // TODO: creacion y envio de la clave simetrica
 
                         // recibe el nombre del cliente
                         Object objetoRecibidoNombre=inputStream.readObject();
-                        String nombreCliente=FirmaDigital.verificarFirmaDigital(objetoRecibidoNombre,clavePublicaCliente,claves);
+                        String nombreCliente=FirmaDigital.verificarFirmaDigitalAES(objetoRecibidoNombre,clavePublicaCliente,claveSimetrica);
 
                         // instancia el cliente y lo agrega al hashset
                         HashSet<String> topicosSuscrito=new HashSet<>();
                         topicosSuscrito.add("General");
                         Cliente cliente=new Cliente(topicosSuscrito,outputStream,clavePublicaCliente,claveSimetrica,conexion,nombreCliente);
                         servidor.getClientes().add(cliente);
-                        System.out.println("Nuevo cliente conectado: "+cliente.getNombre()+" ("+cliente.getConexion().getInetAddress().toString().substring(1)+")");
+                        System.out.println("Nuevo cliente conectado: "+cliente);
 
                         // le manda los topicos por primera vez
                         servidor.mandarTopicos(cliente);
@@ -146,7 +148,7 @@ public class Servidor implements FirmaDigital {
 
                             // el servidor escucha permanentemente en busca de un comando entrante del cliente
                             Object objetoRecibido=inputStream.readObject();
-                            String mensajeRecibido=FirmaDigital.verificarFirmaDigital(objetoRecibido,clavePublicaCliente,claves);
+                            String mensajeRecibido=FirmaDigital.verificarFirmaDigitalAES(objetoRecibido,clavePublicaCliente,cliente.getClaveSimetrica());
 
                             // lo evalua
                             if(mensajeRecibido.charAt(1)=='g' || mensajeRecibido.charAt(0)=='@') servidor.enviarMensaje(cliente,mensajeRecibido);
@@ -162,7 +164,7 @@ public class Servidor implements FirmaDigital {
                         // lector.close();
                         // inputStream.close();
                         // outputStream.close();
-                        // System.out.println("Se desconectó un cliente: "+cliente.getNombre()+" ("+cliente.getConexion().getInetAddress().toString().substring(1)+")");
+                        // System.out.println("Se desconectó un cliente: "+cliente);
 
                     } catch (IOException | InvalidKeySpecException | NoSuchAlgorithmException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException | InvalidKeyException | NoSuchProviderException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { e.getMessage(); }
                 });
@@ -171,7 +173,6 @@ public class Servidor implements FirmaDigital {
                 hiloCliente.start();
 
             } while(true);
-            // TODO: apagar manualmente el servidor
 
         } catch(NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | IOException e) { e.getMessage(); }
     }

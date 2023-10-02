@@ -23,11 +23,11 @@ public class RSA {
     public PublicKey getClavePublica() { return clavePublica; }
     public void setClavePrivada(PrivateKey clavePrivada) { this.clavePrivada=clavePrivada; }
     public void setClavePublica(PublicKey clavePublica) { this.clavePublica=clavePublica; }
-    public byte[] stringToBytes(String s) {
+    public static byte[] stringToBytes(String s) {
         byte[] b2 = new BigInteger(s, 36).toByteArray();
         return Arrays.copyOfRange(b2, 1, b2.length);
     }
-    public String bytesToString(byte[] b) {
+    public static String bytesToString(byte[] b) {
         byte[] b2 = new byte[b.length + 1];
         b2[0] = 1;
         System.arraycopy(b, 0, b2, 1, b.length);
