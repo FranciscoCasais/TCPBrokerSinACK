@@ -162,12 +162,15 @@ public class Cliente implements FirmaDigital {
                     else if(comando.charAt(1)=='s' || comando.charAt(1)=='d') cliente.suscribirDesuscribir(topicosServidor,mensaje,clavePublicaServidor,claves,comando);
                     else if(comando.charAt(1)=='c') {
                         String topico=comando.substring(4);
-                        if(!topicosServidor.contains(topico)) {
-                            cliente.getTopicosSuscrito().add(topico);
-                            topicosServidor.add(topico);
-                            outputStream.writeObject(mensaje);
-                            System.out.println("Se creó el tópico \""+topico+"\" y se le suscribió automáticamente a él.");
-                        } else System.out.println("Ya existe el tópico.");
+                        try {
+                            if(topico.contains(" ")) throw new TopicoConEspacioException("Error: El nombre del tópico no puede contener espacios.");
+                            else if(!topicosServidor.contains(topico)) {
+                                cliente.getTopicosSuscrito().add(topico);
+                                topicosServidor.add(topico);
+                                outputStream.writeObject(mensaje);
+                                System.out.println("Se creó el tópico \""+topico+"\" y se le suscribió automáticamente a él.");
+                            } else System.out.println("Ya existe el tópico.");
+                        } catch(TopicoConEspacioException e) { e.getMessage(); }
                     }
                 } else { System.out.println("\nError de sintaxis. Comandos:\n\n-g mensaje para enviar mensaje al general\n@nombretópico mensaje para enviar mensaje a un tópico\n-s nombretópico para suscribirse a un tópico\n-ds nombretópico para desuscribirse de un tópico\n-ct nombretópico para crear un tópico\n-fin para desconectar\n"); }
 
