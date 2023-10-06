@@ -36,8 +36,10 @@ public class Servidor implements FirmaDigital {
         topicos.add(topico);
         for(Cliente cliente:clientes) {
             if(cliente.equals(emisor)) cliente.getTopicosSuscrito().add(topico);
-            Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),topico);
-            cliente.getOutputStream().writeObject(mensaje);
+            else {
+                Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),topico);
+                cliente.getOutputStream().writeObject(mensaje);
+            }
         }
     }
     public void enviarMensaje(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
