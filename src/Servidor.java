@@ -35,6 +35,7 @@ public class Servidor implements FirmaDigital {
         String topico=comando.substring(4);
         topicos.add(topico);
         for(Cliente cliente:clientes) {
+            if(cliente.equals(emisor)) cliente.getTopicosSuscrito().add(topico);
             Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),topico);
             cliente.getOutputStream().writeObject(mensaje);
         }

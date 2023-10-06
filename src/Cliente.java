@@ -151,7 +151,6 @@ public class Cliente implements FirmaDigital {
             do {
 
                 // el cliente tiene la opcion de ingresar un comando en cualquier momento
-                System.out.print("Esperando comando: ");
                 String comando=entrada.nextLine();
 
                 // lo evalua
@@ -174,7 +173,6 @@ public class Cliente implements FirmaDigital {
                     }
                 } else { System.out.println("\nError de sintaxis. Comandos:\n\n-g mensaje para enviar mensaje al general\n@nombretópico mensaje para enviar mensaje a un tópico\n-s nombretópico para suscribirse a un tópico\n-ds nombretópico para desuscribirse de un tópico\n-ct nombretópico para crear un tópico\n-fin para desconectar\n"); }
 
-                Thread.sleep(500);
                 // break;
 
             } while(true);
@@ -185,6 +183,6 @@ public class Cliente implements FirmaDigital {
             // impresor.close();
             // TODO: desconexion manual del cliente
 
-        } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | InvalidKeySpecException | NoSuchProviderException | ClassNotFoundException | MensajeModificadoException | ObjetoTipoIncorrectoException | InterruptedException e) { System.out.println(e.getMessage()); }
+        } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | InvalidKeySpecException | NoSuchProviderException | ClassNotFoundException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { System.out.println(e.getMessage()); }
     }
 }
