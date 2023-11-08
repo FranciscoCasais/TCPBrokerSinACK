@@ -8,14 +8,14 @@ import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
-public class Cliente implements FirmaDigital {
+public class Cliente1 implements FirmaDigital {
     private HashSet<String> topicosSuscrito;
     private ObjectOutputStream outputStream;
     private RSA clavePublica;
     private SecretKey claveSimetrica;
     private Socket conexion;
     private String nombre;
-    public Cliente() {
+    public Cliente1() {
         topicosSuscrito=new HashSet<>();
         outputStream=null;
         clavePublica=null;
@@ -23,7 +23,7 @@ public class Cliente implements FirmaDigital {
         conexion=null;
         nombre="";
     }
-    public Cliente(HashSet<String> topicosSuscrito, ObjectOutputStream outputStream, RSA clavePublica, SecretKey claveSimetrica, Socket conexion, String nombre) {
+    public Cliente1(HashSet<String> topicosSuscrito, ObjectOutputStream outputStream, RSA clavePublica, SecretKey claveSimetrica, Socket conexion, String nombre) {
         this.topicosSuscrito=topicosSuscrito;
         this.outputStream = outputStream;
         this.clavePublica = clavePublica;
@@ -121,7 +121,7 @@ public class Cliente implements FirmaDigital {
 
             // se establece el nombre y se instancia el cliente
             System.out.print("Se conectó exitosamente al servidor.\nIngrese su nombre: ");
-            Cliente cliente=new Cliente(new HashSet<>(),outputStream,clavePublica,claveSimetrica,conexion,entrada.nextLine());
+            Cliente1 cliente=new Cliente1(new HashSet<>(),outputStream,clavePublica,claveSimetrica,conexion,entrada.nextLine());
             cliente.getTopicosSuscrito().add("General");
 
             // le manda su nombre al servidor

@@ -7,7 +7,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.*;
 import javax.crypto.*;
 public class Servidor implements FirmaDigital {
-    private HashSet<Cliente> clientes;
+    private HashSet<Cliente1> clientes;
     private HashSet<String> topicos;
     private RSA claves;
     private ServerSocket puerto;
@@ -17,24 +17,24 @@ public class Servidor implements FirmaDigital {
         claves=null;
         puerto=null;
     }
-    public Servidor(HashSet<Cliente> clientes, HashSet<String> topicos, RSA claves, ServerSocket puerto) {
+    public Servidor(HashSet<Cliente1> clientes, HashSet<String> topicos, RSA claves, ServerSocket puerto) {
         this.clientes = clientes;
         this.topicos = topicos;
         this.claves = claves;
         this.puerto = puerto;
     }
-    public HashSet<Cliente> getClientes() { return clientes; }
-    public void setClientes(HashSet<Cliente> clientes) { this.clientes=clientes; }
+    public HashSet<Cliente1> getClientes() { return clientes; }
+    public void setClientes(HashSet<Cliente1> clientes) { this.clientes=clientes; }
     public HashSet<String> getTopicos() { return topicos; }
     public void setTopicos(HashSet<String> topicos) { this.topicos=topicos; }
     public RSA getClaves() { return claves; }
     public void setClaves(RSA claves) { this.claves=claves; }
     public ServerSocket getPuerto() { return puerto; }
     public void setPuerto(ServerSocket puerto) { this.puerto=puerto; }
-    public void agregarTopico(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
+    public void agregarTopico(Cliente1 emisor, String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
         String topico=comando.substring(4);
         topicos.add(topico);
-        for(Cliente cliente:clientes) {
+        for(Cliente1 cliente:clientes) {
             if(cliente.equals(emisor)) cliente.getTopicosSuscrito().add(topico);
             else {
                 Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),topico);
@@ -42,7 +42,7 @@ public class Servidor implements FirmaDigital {
             }
         }
     }
-    public void enviarMensaje(Cliente emisor,String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
+    public void enviarMensaje(Cliente1 emisor, String comando) throws NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
         String mensajeString,topico;
         if(comando.charAt(1)=='g') {
             topico="General";
@@ -51,22 +51,22 @@ public class Servidor implements FirmaDigital {
             topico=FirmaDigital.obtenerTopico1(comando);
             mensajeString="/"+emisor.getNombre()+" dice en @"+topico+": "+comando.substring(topico.length()+2);
         }
-        for(Cliente cliente:clientes) {
+        for(Cliente1 cliente:clientes) {
             if(cliente.getTopicosSuscrito().contains(topico)) {
                 Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),mensajeString);
                 cliente.getOutputStream().writeObject(mensaje);
             }
         }
     }
-    public void mandarTopicos(Cliente cliente) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
+    public void mandarTopicos(Cliente1 cliente) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeySpecException, InvalidKeyException, NoSuchProviderException {
         String cadenaTopicos="";
         for(String topico:topicos) { cadenaTopicos+=topico+'.'; }
         Mensaje mensaje=FirmaDigital.obtenerObjetoMensajeAES(claves,cliente.getClaveSimetrica(),cadenaTopicos);
         cliente.getOutputStream().writeObject(mensaje);
     }
-    public void suscribirDesuscribirCliente(Cliente cliente,String mensaje) {
+    public void suscribirDesuscribirCliente(Cliente1 cliente, String mensaje) {
         String topico=FirmaDigital.obtenerTopico2(mensaje);
-        for(Cliente c:clientes) {
+        for(Cliente1 c:clientes) {
             if(c.equals(cliente) && mensaje.charAt(1)=='s') c.getTopicosSuscrito().add(topico);
             else if(c.equals(cliente) && mensaje.charAt(1)=='d') c.getTopicosSuscrito().remove(topico);
         }
@@ -92,7 +92,7 @@ public class Servidor implements FirmaDigital {
                 do {
                     String comando=entrada.nextLine();
                     if(comando.equals("-lc")) {
-                        for(Cliente cliente:servidor.getClientes()) System.out.println(cliente);
+                        for(Cliente1 cliente:servidor.getClientes()) System.out.println(cliente);
                     } else if(comando.equals("-lt")) {
                         for(String topico:servidor.getTopicos()) System.out.println(topico);
                     } else if(comando.equals("-fin")) {
@@ -140,7 +140,7 @@ public class Servidor implements FirmaDigital {
                         // instancia el cliente y lo agrega al hashset
                         HashSet<String> topicosSuscrito=new HashSet<>();
                         topicosSuscrito.add("General");
-                        Cliente cliente=new Cliente(topicosSuscrito,outputStream,clavePublicaCliente,claveSimetrica,conexion,nombreCliente);
+                        Cliente1 cliente=new Cliente1(topicosSuscrito,outputStream,clavePublicaCliente,claveSimetrica,conexion,nombreCliente);
                         servidor.getClientes().add(cliente);
                         System.out.println("Nuevo cliente conectado: "+cliente);
 
