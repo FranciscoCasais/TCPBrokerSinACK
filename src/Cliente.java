@@ -8,14 +8,14 @@ import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
-public class Cliente1 implements FirmaDigital {
+public class Cliente implements FirmaDigital {
     private HashSet<String> topicosSuscrito;
     private ObjectOutputStream outputStream;
     private RSA clavePublica;
     private SecretKey claveSimetrica;
     private Socket conexion;
     private String nombre;
-    public Cliente1() {
+    public Cliente() {
         topicosSuscrito=new HashSet<>();
         outputStream=null;
         clavePublica=null;
@@ -23,7 +23,7 @@ public class Cliente1 implements FirmaDigital {
         conexion=null;
         nombre="";
     }
-    public Cliente1(HashSet<String> topicosSuscrito, ObjectOutputStream outputStream, RSA clavePublica, SecretKey claveSimetrica, Socket conexion, String nombre) {
+    public Cliente(HashSet<String> topicosSuscrito, ObjectOutputStream outputStream, RSA clavePublica, SecretKey claveSimetrica, Socket conexion, String nombre) {
         this.topicosSuscrito=topicosSuscrito;
         this.outputStream = outputStream;
         this.clavePublica = clavePublica;
@@ -85,7 +85,7 @@ public class Cliente1 implements FirmaDigital {
             }
         }
     }
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         Scanner entrada=new Scanner(System.in);
         System.out.print("Ingrese la IP del servidor: ");
         String ipServidor=entrada.nextLine();
@@ -121,7 +121,12 @@ public class Cliente1 implements FirmaDigital {
 
             // se establece el nombre y se instancia el cliente
             System.out.print("Se conectó exitosamente al servidor.\nIngrese su nombre: ");
-            Cliente1 cliente=new Cliente1(new HashSet<>(),outputStream,clavePublica,claveSimetrica,conexion,entrada.nextLine());
+            String nombre=entrada.nextLine();
+            while(nombre.contains("-") || nombre.contains("/") || nombre.contains("@")) {
+                System.out.print("El nombre no puede contener \"-\" o \"/\" o \"@\", intente nuevamente: ");
+                nombre=entrada.nextLine();
+            }
+            Cliente cliente=new Cliente(new HashSet<>(),outputStream,clavePublica,claveSimetrica,conexion,nombre);
             cliente.getTopicosSuscrito().add("General");
 
             // le manda su nombre al servidor
@@ -141,12 +146,12 @@ public class Cliente1 implements FirmaDigital {
                         Object objetoRecibido=inputStream.readObject();
                         String mensajeRecibido=FirmaDigital.verificarFirmaDigitalAES(objetoRecibido,clavePublicaServidor,cliente.getClaveSimetrica());
                         if(mensajeRecibido.charAt(0)=='/') System.out.println(mensajeRecibido.substring(1));
-                        else topicosServidor.add(mensajeRecibido);
+                        else if(mensajeRecibido.charAt(1)=='c') topicosServidor.add(mensajeRecibido);
+                        else break;
                     } catch (IOException | ClassNotFoundException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { System.out.println(e.getMessage()); }
                 } while(true);
             });
             hiloRecepcion.start();
-            // TODO: finalizacion manual del hilo
 
             do {
 
@@ -171,17 +176,19 @@ public class Cliente1 implements FirmaDigital {
                             } else System.out.println("Ya existe el tópico.");
                         } catch(TopicoConEspacioException e) { System.out.println(e.getMessage()); }
                     }
+                    else {
+                        outputStream.writeObject(mensaje);
+                        break;
+                    }
                 } else { System.out.println("\nError de sintaxis. Comandos:\n\n-g mensaje para enviar mensaje al general\n@nombretópico mensaje para enviar mensaje a un tópico\n-s nombretópico para suscribirse a un tópico\n-ds nombretópico para desuscribirse de un tópico\n-ct nombretópico para crear un tópico\n-fin para desconectar\n"); }
-
-                // break;
 
             } while(true);
 
-            // lector.close();
-            // outputStream.close();
-            // inputStream.close();
-            // impresor.close();
-            // TODO: desconexion manual del cliente
+            hiloRecepcion.join();
+            impresor.close();
+            lector.close();
+            outputStream.close();
+            inputStream.close();
 
         } catch(IOException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | InvalidKeySpecException | NoSuchProviderException | ClassNotFoundException | MensajeModificadoException | ObjetoTipoIncorrectoException e) { System.out.println(e.getMessage()); }
     }
